@@ -137,6 +137,7 @@ SOFTWARE.
     right.element.innerHTML = split_text_right.join( ' ' );
   }
   function GetDiff( left, right ) {
+    if( !left || !right ) return '<del>' + ( left || '' ) + '</del><ins>' + ( right || '' ) + '</ins>';
     left = GetElementHierarchy.call( { }, CreateElement( { type: 'root', html: left } ) ).hierarchy[ 0 ];
     right = GetElementHierarchy.call( { }, CreateElement( { type: 'root', html: right } ) ).hierarchy[ 0 ];
     GenerateMarkupDiff( left, right );

@@ -25,6 +25,10 @@ SOFTWARE.
   function CreateElement( options ) {
     var element;
     switch( options.type ) {
+      case 'grandroot':
+        element = document.createElement( 'div' );
+        element.innerHTML = CreateElement( { type: 'root', html: options.html } ).outerHTML
+        break;
       case 'root':
         element = document.createElement( 'div' );
         element.innerHTML = options.html;
@@ -45,12 +49,26 @@ SOFTWARE.
   }
   function GenerateMarkupDiff( left, right ) {
     if( !left.hierarchy.length && !right.hierarchy.length ) return GenerateTextDiff( left, right );
+    if( !left.hierarchy.length || !right.hierarchy.length ) {
+      //right.element = CreateElement( { type: 'root', html: '<del>' + left.element.outerHTML + '</del><ins>' + right.element.outerHTML + '</ins>' } );
+      left.element = CreateElement( {
+        type: 'del',
+        template: left,
+        parent: right.parent
+      } );
+      right.element = CreateElement( {
+        type: 'ins',
+        template: right,
+        replace: right
+      } );
+      return;
+    }
     for( var index_right = 0; index_right < right.hierarchy.length; index_right++ ) {
       var current_right = right.hierarchy[ index_right ];
       for( var index_left = 0; index_left < left.hierarchy.length; index_left++ ) {
         var current_left = left.hierarchy[ index_left ];
         if( typeof current_left.index !== 'undefined' ) continue;
-        if( GetSimilarity( current_left.element.outerHTML, current_right.element.outerHTML ) < 0.9 ) continue;
+        if( GetSimilarity( current_left.element.outerHTML, current_right.element.outerHTML ) < 0.5 ) continue;
         current_right.index = index_left;
         current_left.index = index_left;
         GenerateMarkupDiff( current_left, current_right );
@@ -115,7 +133,7 @@ SOFTWARE.
       if( typeof current_right.index === 'undefined' )
         current_right.text = '<ins>' + current_right.text + '</ins>';
     }
-    for( var index_left = 0; index_left < split_object_left.length; index_left++ ) {
+    for( var index_left = split_object_left.length - 1; index_left >= 0; index_left-- ) {
       var current_left = split_object_left[ index_left ];
       if( typeof current_left.index !== 'undefined' ) continue;
       for( var index_right = split_object_right.length - 1; index_right >= 0; index_right-- ) {
@@ -125,11 +143,11 @@ SOFTWARE.
         if( index_left < current_right.index ) continue;
         current_left.index = current_right.index;
         var edit_right = typeof previous_right !== 'undefined' && typeof previous_right.index === 'undefined' ? previous_right : current_right;
-        edit_right.text = '<del>' + current_left.text + '</del>' + edit_right.text;
+        edit_right.text = '<del>' + current_left.text + '</del> ' + edit_right.text;
         break;
       }
       if( typeof current_left.index === 'undefined' )
-        split_object_right[ 0 ].text = '<del>' + current_left.text + '</del>' + split_object_right[ 0 ].text;
+        split_object_right[ 0 ].text = '<del>' + current_left.text + ' </del>' + split_object_right[ 0 ].text;
     }
     split_text_right = [ ];
     for( var index_right = 0; index_right < split_object_right.length; index_right++ )
@@ -138,17 +156,16 @@ SOFTWARE.
   }
   function GetDiff( left, right ) {
     if( !left || !right ) return '<del>' + ( left || '' ) + '</del><ins>' + ( right || '' ) + '</ins>';
-    left = GetElementHierarchy.call( { }, CreateElement( { type: 'root', html: left } ) ).hierarchy[ 0 ];
-    right = GetElementHierarchy.call( { }, CreateElement( { type: 'root', html: right } ) ).hierarchy[ 0 ];
+    left = GetElementHierarchy.call( { }, CreateElement( { type: 'grandroot', html: left } ) ).hierarchy[ 0 ];
+    right = GetElementHierarchy.call( { }, CreateElement( { type: 'grandroot', html: right } ) ).hierarchy[ 0 ];
     GenerateMarkupDiff( left, right );
-    return right.element.innerHTML;
+    return right.parent.element.innerHTML;
   }
   function GetElementHierarchy( element ) {
     this.element = element;
     this.hierarchy = this.hierarchy || [ ];
-    for( var index = 0; index < element.children.length; index++ ) {
+    for( var index = 0; index < element.children.length; index++ )
       this.hierarchy.push( GetElementHierarchy.call( { hierarchy: [ ], parent: this }, element.children[ index ] ) );
-    }
     return this;
   }
   function GetSimilarity( left, right ) {
